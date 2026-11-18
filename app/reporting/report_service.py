@@ -1,0 +1,21 @@
+import csv
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+def generate_reports(packets, alerts, directory):
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    csv_path = Path(directory) / f"traffic_{stamp}.csv"
+    json_path = Path(directory) / f"snids_{stamp}.json"
+    fields = ["id", "timestamp", "source_ip", "destination_ip", "source_port", "destination_port",
+              "protocol", "packet_size", "tcp_flags", "icmp_type", "icmp_code", "capture_source", "interface", "direction"]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(packets)
+    with json_path.open("w", encoding="utf-8") as handle:
+        json.dump({"privacy": "header-only", "packets": packets, "alerts": alerts}, handle, indent=2)
+    return {"csv": str(csv_path), "json": str(json_path)}
+

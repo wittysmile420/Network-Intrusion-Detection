@@ -1,0 +1,3 @@
+# API reference
+
+`GET /api/health`, `/api/dashboard`, `/api/statistics`, `/api/packets`, `/api/alerts`, `/api/alerts/<id>`, `/api/reports`, and `/api/simulation` return JSON. `POST /api/ingest` and `/api/monitoring/tcp` or `/udp` accept `{ "packets": [...] }`; `POST /api/alerts/<id>/acknowledge` and `/resolve` change lifecycle state; `POST /api/agents/heartbeat` accepts `agent_id`; `POST /api/reports/generate` creates CSV/JSON files and report IDs; `GET /api/reports/<id>/download` downloads a stored report; `POST /api/simulation/import` stores parsed metrics. Invalid input returns HTTP 400 and missing records return 404.

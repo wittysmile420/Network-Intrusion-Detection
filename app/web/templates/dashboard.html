@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SNIDS Dashboard</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main><header><h1>Smart Network Intrusion Detection System</h1><p>Header-only defensive monitoring • authorized lab traffic only</p></header>
+<section class="cards"><div><b id="total">0</b><span>Total packets</span></div><div><b id="tcp">0</b><span>TCP</span></div><div><b id="udp">0</b><span>UDP</span></div><div><b id="icmp">0</b><span>ICMP</span></div><div><b id="alerts">0</b><span>Open alerts</span></div></section>
+<section class="panel"><h2>Protocol distribution</h2><canvas id="protocol"></canvas></section>
+<section class="panel"><h2>Recent alerts</h2><table><thead><tr><th>Time</th><th>Rule</th><th>Severity</th><th>Description</th><th>Action</th></tr></thead><tbody id="alertRows"></tbody></table></section>
+<section class="panel"><button onclick="generateReport()">Generate CSV/JSON reports</button><a href="/api/health"> API health</a><p id="message"></p></section>
+</main><script>
+async function load(){const d=await (await fetch('/api/dashboard')).json(),s=d.statistics; for(const [id,key] of [['total','total_packets'],['tcp','tcp'],['udp','udp'],['icmp','icmp']])document.getElementById(id).textContent=s[key];document.getElementById('alerts').textContent=d.alerts.filter(a=>a.status==='open').length;document.getElementById('alertRows').innerHTML=d.alerts.slice(0,20).map(a=>`<tr><td>${a.timestamp}</td><td>${a.rule_name}</td><td>${a.severity}</td><td>${a.description}</td><td><button onclick="updateAlert(${a.id},'acknowledge')">Ack</button> <button onclick="updateAlert(${a.id},'resolve')">Resolve</button></td></tr>`).join('');const c=document.getElementById('protocol'),x=c.getContext('2d');c.width=500;c.height=180;x.clearRect(0,0,c.width,c.height);[['TCP',s.tcp,'#1769aa'],['UDP',s.udp,'#2f855a'],['ICMP',s.icmp,'#b7791f']].forEach((v,i)=>{const h=s.total_packets?140*v[1]/s.total_packets:0;x.fillStyle=v[2];x.fillRect(40+i*150,150-h,80,h);x.fillStyle='#172033';x.fillText(`${v[0]} (${v[1]})`,40+i*150,170);});}
+async function updateAlert(id,a){await fetch(`/api/alerts/${id}/${a}`,{method:'POST'});load()} async function generateReport(){const r=await (await fetch('/api/reports/generate',{method:'POST'})).json();document.getElementById('message').textContent=JSON.stringify(r)} load();setInterval(load,5000);
+</script></body></html>

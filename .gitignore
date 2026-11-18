@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+data/*.db
+logs/*.log
+reports/generated/*
+simulations/results/*.tr
+simulations/results/*.nam
+

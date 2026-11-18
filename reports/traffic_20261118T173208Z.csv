@@ -1,0 +1,6 @@
+id,timestamp,source_ip,destination_ip,source_port,destination_port,protocol,packet_size,tcp_flags,icmp_type,icmp_code,capture_source,interface,direction
+9d4cfc9b-d9aa-4d6b-a420-df41a379a060,2026-11-18T17:31:47.618683+00:00,127.0.0.1,127.0.0.1,40000,8080,TCP,60,S,,,safe-demo,,
+a4a1aeaa-e879-4617-9dff-ab0ff8b56dd3,2026-11-18T17:31:47.618683+00:00,127.0.0.1,127.0.0.1,40001,8080,UDP,64,,,,safe-demo,,
+ea0a4670-e6e9-40bf-ba7a-8294a32cdf97,2026-11-18T17:31:47.618683+00:00,127.0.0.1,127.0.0.1,40002,8080,ICMP,64,,8,,safe-demo,,
+767fed51-0029-4ba6-b5e9-173de6669f9f,2026-11-18T17:31:47.618683+00:00,127.0.0.1,127.0.0.1,40003,8080,TCP,60,S,,,safe-demo,,
+b8af41ed-381f-4452-ab84-364b8b5bfd41,2026-11-18T17:31:47.618683+00:00,127.0.0.1,127.0.0.1,40004,8080,UDP,64,,,,safe-demo,,
