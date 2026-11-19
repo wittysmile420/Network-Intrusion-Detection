@@ -12,4 +12,14 @@ def test_api_ingest_and_lifecycle(tmp_path):
     assert response.status_code == 201
     assert client.post("/api/ingest", json={"packets": [{"protocol": "BAD"}]}).status_code == 400
     assert client.get("/api/health").json["status"] == "ok"
-    assert client.post("/api/reports/generate").status_code == 201
+    dashboard = client.get("/api/dashboard")
+    assert dashboard.status_code == 200
+    assert "capture" in dashboard.json
+    assert "top_flows" in dashboard.json["statistics"]
+    assert client.get("/api/simulation/evidence").status_code == 200
+    assert client.post("/api/simulation/load-generated").status_code == 201
+    assert client.get("/api/simulation").status_code == 200
+    report_response = client.post("/api/reports/generate")
+    assert report_response.status_code == 201
+    assert {"csv", "json", "text"} <= report_response.json.keys()
+    assert client.get("/api/realtime").status_code == 200

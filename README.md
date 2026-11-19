@@ -22,3 +22,5 @@ Institute: Jaypee Institute of Information Technology, Sector-128. Course: Compu
 
 See [docs](docs) for installation, architecture, detection rules, simulation, demo, testing, API, and ethics documentation.
 
+For the full Windows/WSL setup, fallback procedures, feature verification, and recovery steps, use [Complete Operation Guide](docs/COMPLETE_OPERATION_GUIDE.md).
+

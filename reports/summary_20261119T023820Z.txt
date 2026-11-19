@@ -1,0 +1,12 @@
+SNIDS Academic Traffic Summary
+Generated: 2026-11-19T02:38:20.221240+00:00
+Privacy: header-level records only; payloads are not collected.
+
+Packets: 483
+TCP: 414
+UDP: 35
+ICMP: 34
+Open alerts: 20
+Total alerts: 21
+
+Limitations: Statistics depend on authorized demo/live capture coverage. UDP delivery and rule thresholds may produce false positives or false negatives.

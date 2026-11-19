@@ -1,12 +1,218 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SNIDS Dashboard</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main><header><h1>Smart Network Intrusion Detection System</h1><p>Header-only defensive monitoring • authorized lab traffic only</p></header>
-<section class="cards"><div><b id="total">0</b><span>Total packets</span></div><div><b id="tcp">0</b><span>TCP</span></div><div><b id="udp">0</b><span>UDP</span></div><div><b id="icmp">0</b><span>ICMP</span></div><div><b id="alerts">0</b><span>Open alerts</span></div></section>
-<section class="panel"><h2>Protocol distribution</h2><canvas id="protocol"></canvas></section>
-<section class="panel"><h2>Recent alerts</h2><table><thead><tr><th>Time</th><th>Rule</th><th>Severity</th><th>Description</th><th>Action</th></tr></thead><tbody id="alertRows"></tbody></table></section>
-<section class="panel"><button onclick="generateReport()">Generate CSV/JSON reports</button><a href="/api/health"> API health</a><p id="message"></p></section>
-</main><script>
-async function load(){const d=await (await fetch('/api/dashboard')).json(),s=d.statistics; for(const [id,key] of [['total','total_packets'],['tcp','tcp'],['udp','udp'],['icmp','icmp']])document.getElementById(id).textContent=s[key];document.getElementById('alerts').textContent=d.alerts.filter(a=>a.status==='open').length;document.getElementById('alertRows').innerHTML=d.alerts.slice(0,20).map(a=>`<tr><td>${a.timestamp}</td><td>${a.rule_name}</td><td>${a.severity}</td><td>${a.description}</td><td><button onclick="updateAlert(${a.id},'acknowledge')">Ack</button> <button onclick="updateAlert(${a.id},'resolve')">Resolve</button></td></tr>`).join('');const c=document.getElementById('protocol'),x=c.getContext('2d');c.width=500;c.height=180;x.clearRect(0,0,c.width,c.height);[['TCP',s.tcp,'#1769aa'],['UDP',s.udp,'#2f855a'],['ICMP',s.icmp,'#b7791f']].forEach((v,i)=>{const h=s.total_packets?140*v[1]/s.total_packets:0;x.fillStyle=v[2];x.fillRect(40+i*150,150-h,80,h);x.fillStyle='#172033';x.fillText(`${v[0]} (${v[1]})`,40+i*150,170);});}
-async function updateAlert(id,a){await fetch(`/api/alerts/${id}/${a}`,{method:'POST'});load()} async function generateReport(){const r=await (await fetch('/api/reports/generate',{method:'POST'})).json();document.getElementById('message').textContent=JSON.stringify(r)} load();setInterval(load,5000);
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SNIDS Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Smart Network Intrusion Detection System</h1>
+      <p>Header-only defensive monitoring · authorized lab traffic only</p>
+    </div>
+    <span id="liveStatus" class="status">Connecting</span>
+  </header>
+
+  <section class="cards">
+    <div><b id="total">0</b><span>Total packets</span></div>
+    <div><b id="ppm">0</b><span>Packets/min</span></div>
+    <div><b id="tcp">0</b><span>TCP packets</span></div>
+    <div><b id="udp">0</b><span>UDP packets</span></div>
+    <div><b id="icmp">0</b><span>ICMP packets</span></div>
+    <div><b id="openAlerts">0</b><span>Open alerts</span></div>
+    <div><b id="agents">0</b><span>Monitoring agents</span></div>
+  </section>
+
+  <section class="grid charts">
+    <div class="panel"><h2>Protocol distribution</h2><canvas id="protocolChart"></canvas></div>
+    <div class="panel"><h2>Packet traffic over time</h2><canvas id="timelineChart"></canvas></div>
+    <div class="panel"><h2>Alerts by severity</h2><canvas id="severityChart"></canvas></div>
+    <div class="panel"><h2>Top source IP addresses</h2><canvas id="sourceChart"></canvas></div>
+    <div class="panel"><h2>Alert activity over time</h2><canvas id="alertTimelineChart"></canvas></div>
+  </section>
+
+  <section class="grid details">
+    <div class="panel">
+      <h2>Recent packets</h2>
+      <div class="tableWrap"><table>
+        <thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Size</th></tr></thead>
+        <tbody id="packetRows"></tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <h2>Top destinations and flows</h2>
+      <div class="tableWrap"><table>
+        <thead><tr><th>Destination</th><th>Count</th></tr></thead>
+        <tbody id="destinationRows"></tbody>
+      </table></div>
+      <div class="tableWrap"><table>
+        <thead><tr><th>Source</th><th>Destination</th><th>Protocol</th><th>Port</th><th>Count</th></tr></thead>
+        <tbody id="flowRows"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="headingRow">
+      <h2>Alerts</h2>
+      <select id="alertFilter" aria-label="Filter alerts">
+        <option value="">All statuses</option>
+        <option value="open">Open</option>
+        <option value="acknowledged">Acknowledged</option>
+        <option value="resolved">Resolved</option>
+      </select>
+    </div>
+    <div class="tableWrap"><table>
+      <thead><tr><th>Time</th><th>Rule</th><th>Severity</th><th>Source</th><th>Destination</th><th>Description</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody id="alertRows"></tbody>
+    </table></div>
+  </section>
+
+  <section class="grid simulation">
+    <div class="panel">
+      <h2>NS2 normal vs abnormal</h2>
+      <canvas id="ns2Chart"></canvas>
+      <button onclick="loadSimulation(true)">Load generated traces into database</button>
+    </div>
+    <div class="panel">
+      <h2>Capture and environment</h2>
+      <dl id="environment"></dl>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Reports</h2>
+    <button onclick="generateReport()">Generate CSV, JSON, and text reports</button>
+    <div id="reportLinks"></div>
+    <p id="message"></p>
+  </section>
+</main>
+
+<script>
+const barColors={TCP:"#1769aa",UDP:"#2f855a",ICMP:"#b7791f",high:"#c53030",medium:"#d97706",low:"#3182ce"};
+
+function canvasContext(id) {
+  const c=document.getElementById(id), ctx=c.getContext("2d");
+  const ratio=window.devicePixelRatio||1;
+  const width=c.parentElement.clientWidth-32;
+  c.width=Math.max(280,width*ratio); c.height=210*ratio;
+  c.style.width="100%"; c.style.height="210px";
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.clearRect(0,0,width,210);
+  return {ctx,width,height:210};
+}
+
+function clearCanvas(id){const c=document.getElementById(id),ctx=c.getContext("2d");const b=canvasContext(id);ctx.clearRect(0,0,b.width,b.height);return b;}
+function drawBarChart(id, labels, values, colors) {
+  const {ctx,width,height}=clearCanvas(id);
+  const max=Math.max(...values,1), left=55, bottom=175, chartW=width-left-15, chartH=125;
+  ctx.strokeStyle="#d9e2ec"; ctx.fillStyle="#172033"; ctx.font="12px Segoe UI";
+  ctx.beginPath();ctx.moveTo(left,30);ctx.lineTo(left,bottom);ctx.lineTo(width-10,bottom);ctx.stroke();
+  const gap=labels.length?chartW/labels.length:chartW;
+  labels.forEach((label,i)=>{
+    const h=values[i]/max*chartH;const x=left+i*gap+gap*.18;const w=Math.min(gap*.64,70);
+    ctx.fillStyle=colors[i%colors.length];ctx.fillRect(x,bottom-h,w,h);
+    ctx.fillStyle="#172033";ctx.textAlign="center";ctx.fillText(String(values[i]),x+w/2,bottom-h-5);
+    ctx.fillText(label,x+w/2,bottom+16);
+  });
+}
+function drawLineChart(id, points) {
+  const {ctx,width,height}=clearCanvas(id);
+  const left=55,bottom=175,chartW=width-left-15,chartH=125;
+  ctx.strokeStyle="#d9e2ec";ctx.beginPath();ctx.moveTo(left,30);ctx.lineTo(left,bottom);ctx.lineTo(width-10,bottom);ctx.stroke();
+  if(!points.length){ctx.fillStyle="#52606d";ctx.textAlign="center";ctx.fillText("No traffic in the selected interval",width/2,100);return;}
+  const max=Math.max(...points.map(p=>p[1]),1);
+  ctx.beginPath();
+  points.forEach((p,i)=>{
+    const x=left+(i/(Math.max(points.length-1,1))*chartW);
+    const y=bottom-(p[1]/max*chartH);
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  });
+  ctx.strokeStyle="#1769aa";ctx.lineWidth=2.5;ctx.stroke();
+  ctx.fillStyle="#52606d";ctx.font="11px Segoe UI";ctx.textAlign="center";
+  points.forEach((p,i)=>{if(i%Math.ceil(points.length/5)==0)ctx.fillText(p[0].slice(11,16)||p[0],left+i/Math.max(points.length-1,1)*chartW,bottom+16);});
+}
+
+async function loadAlerts(){
+  const status=document.getElementById("alertFilter").value;
+  const alerts=await (await fetch("/api/alerts"+(status?"?status="+encodeURIComponent(status):""))).json();
+  document.getElementById("alertRows").innerHTML=alerts.slice(0,30).map(a=>`<tr>
+    <td>${a.timestamp}</td><td>${a.rule_name}</td><td><span class="severity ${a.severity}">${a.severity}</span></td>
+    <td>${a.source_ip||"-"}</td><td>${a.destination_ip||"-"}</td><td>${a.description}</td><td>${a.status}</td>
+    <td>${a.status==="open"?`<button onclick="updateAlert(${a.id},'acknowledge')">Ack</button>`:""}
+    ${a.status!=="resolved"?`<button class="resolve" onclick="updateAlert(${a.id},'resolve')">Resolve</button>`:""}</td></tr>`).join("")||'<tr><td colspan="8">No alerts found</td></tr>';
+}
+async function updateAlert(id,action){await fetch(`/api/alerts/${id}/${action}`,{method:"POST"});await load();}
+
+async function load(){
+  const d=await (await fetch("/api/dashboard")).json(),s=d.statistics;
+  document.getElementById("total").textContent=s.total_packets;
+  document.getElementById("ppm").textContent=s.packets_per_minute;
+  document.getElementById("tcp").textContent=s.tcp;
+  document.getElementById("udp").textContent=s.udp;
+  document.getElementById("icmp").textContent=s.icmp;
+  document.getElementById("openAlerts").textContent=d.open_alerts;
+  document.getElementById("agents").textContent=d.agents.length;
+  drawBarChart("protocolChart",["TCP","UDP","ICMP"],[s.tcp,s.udp,s.icmp],[barColors.TCP,barColors.UDP,barColors.ICMP]);
+  drawLineChart("timelineChart",s.traffic_timeline||[]);
+  drawLineChart("alertTimelineChart",d.alert_timeline||[]);
+  const severities=d.alert_severity||{}, labels=["high","medium","low"];
+  drawBarChart("severityChart",labels,labels.map(x=>severities[x]||0),[barColors.high,barColors.medium,barColors.low]);
+  const sourceLabels=s.top_sources.map(x=>x[0]), sourceValues=s.top_sources.map(x=>x[1]);
+  drawBarChart("sourceChart",sourceLabels,sourceValues,[barColors.TCP]);
+  document.getElementById("packetRows").innerHTML=d.packets.map(p=>`<tr><td>${p.timestamp}</td><td>${p.source_ip}:${p.source_port||""}</td><td>${p.destination_ip}:${p.destination_port||""}</td><td>${p.protocol}</td><td>${p.packet_size}</td></tr>`).join("")||'<tr><td colspan="5">No packets captured</td></tr>';
+  document.getElementById("destinationRows").innerHTML=s.top_destinations.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join("")||'<tr><td colspan="2">No destinations</td></tr>';
+  document.getElementById("flowRows").innerHTML=(s.top_flows||[]).map(f=>`<tr><td>${f.source_ip}</td><td>${f.destination_ip}</td><td>${f.protocol}</td><td>${f.destination_port||"-"}</td><td>${f.packet_count}</td></tr>`).join("")||'<tr><td colspan="5">No flows</td></tr>';
+  document.getElementById("environment").innerHTML=`<dt>Capture status</dt><dd>${d.capture.status}</dd><dt>Capture source</dt><dd>${d.capture.source}</dd><dt>Interface/file</dt><dd>${d.capture.interface||"not selected"}</dd><dt>Privacy</dt><dd>${d.capture.privacy}</dd><dt>Agents</dt><dd>${d.agents.map(a=>a.agent_id).join(", ")||"none"}</dd>`;
+  await loadAlerts();
+  await loadSimulation(false);
+  await loadReports();
+  document.getElementById("liveStatus").textContent="Live";
+  document.getElementById("liveStatus").className="status connected";
+}
+
+async function loadSimulation(importGenerated){
+  let evidence;
+  if(importGenerated){
+    await fetch("/api/simulation/load-generated",{method:"POST"});
+  }
+  evidence=await (await fetch("/api/simulation/evidence")).json();
+  const normal=evidence.find(x=>x.scenario==="normal"), abnormal=evidence.find(x=>x.scenario==="abnormal");
+  const labels=["Normal","Abnormal"], sent=[normal?.metrics.packet_sent||0,abnormal?.metrics.packet_sent||0],
+    received=[normal?.metrics.packet_received||0,abnormal?.metrics.packet_received||0],
+    loss=[normal?.metrics.packet_loss||0,abnormal?.metrics.packet_loss||0];
+  const c=document.getElementById("ns2Chart"),ctx=c.getContext("2d");canvasContext("ns2Chart");
+  ctx.clearRect(0,0,c.width,c.height);ctx.font="13px Segoe UI";
+  ctx.fillStyle="#52606d";ctx.fillText("Packet loss: "+loss.map((v,i)=>labels[i]+" "+v+"%").join(" · "),20,22);
+  drawBarChart("ns2Chart",["Normal sent","Normal recv","Abnormal sent","Abnormal recv"],[sent[0],received[0],sent[1],received[1]],[barColors.TCP,barColors.UDP,barColors.high,barColors.medium]);
+  if(importGenerated) await load();
+}
+
+async function generateReport(){
+  const r=await (await fetch("/api/reports/generate",{method:"POST"})).json();
+  document.getElementById("message").textContent="Reports generated.";
+  await loadReports(r);
+}
+async function loadReports(generated){
+  let r=generated;
+  if(!r){
+    const names=await (await fetch("/api/reports")).json();
+    document.getElementById("reportLinks").innerHTML=names.map(n=>`<a href="/api/reports/${encodeURIComponent(n)}" download>${n}</a>`).join("");
+    return;
+  }
+  document.getElementById("reportLinks").innerHTML=["csv","json","text"].filter(k=>r[k]).map(k=>`<a href="/api/reports/${encodeURIComponent(r[k].split(/[\\\\/]/).pop())}" download>${k.toUpperCase()} report</a>`).join("");
+}
+
+document.getElementById("alertFilter").addEventListener("change",loadAlerts);
+load();setInterval(load,5000);
+try{
+  const stream=new EventSource("/api/realtime");
+  stream.onopen=()=>document.getElementById("liveStatus").className="status connected";
+  stream.onerror=()=>document.getElementById("liveStatus").className="status";
+}catch(e){}
+</script>
+</body>
+</html>
